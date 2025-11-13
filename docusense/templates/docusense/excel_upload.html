@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Upload Excel File - DocuSense{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Upload Excel File</h3>
+                </div>
+                <div class="card-body">
+                    <form id="excelUploadForm" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="excelFile" class="form-label">Select Excel File</label>
+                            <input type="file" class="form-control" id="excelFile" name="excel_file" accept=".xlsx,.xls" required>
+                            <div class="form-text">Supported formats: .xlsx, .xls</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Upload Excel</button>
+                    </form>
+                    
+                    <div id="uploadStatus" class="mt-3" style="display: none;">
+                        <div class="alert" id="statusMessage"></div>
+                    </div>
+                    
+                    <div id="excelSummary" class="mt-4" style="display: none;">
+                        <h4>Excel Summary</h4>
+                        <div id="summaryContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Function to get CSRF token from cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+document.getElementById('excelUploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    const fileInput = document.getElementById('excelFile');
+    formData.append('excel_file', fileInput.files[0]);
+    
+    const statusDiv = document.getElementById('uploadStatus');
+    const statusMessage = document.getElementById('statusMessage');
+    const summaryDiv = document.getElementById('excelSummary');
+    const summaryContent = document.getElementById('summaryContent');
+    
+    statusDiv.style.display = 'block';
+    statusMessage.className = 'alert alert-info';
+    statusMessage.textContent = 'Uploading...';
+    
+    try {
+        const response = await fetch("{% url 'docusense:upload_excel' %}", {
+            method: 'POST',
+            headers: { "X-CSRFToken": csrftoken },  // ✅ Fix for CSRF
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            statusMessage.className = 'alert alert-success';
+            statusMessage.textContent = 'Excel file uploaded successfully!';
+            
+            // Display summary
+            summaryDiv.style.display = 'block';
+            summaryContent.innerHTML = `
+                <p><strong>File:</strong> ${data.document.name}</p>
+                <p><strong>Size:</strong> ${data.document.size}</p>
+                <p><strong>Rows:</strong> ${data.document.summary.total_rows}</p>
+                <p><strong>Total Columns:</strong> ${data.document.summary.total_columns}</p>
+                <p><strong>Column Names:</strong> ${data.document.summary.column_names.join(', ')}</p>
+            `;
+            
+            // Redirect to document detail after 5 seconds
+            setTimeout(() => {
+                window.location.href = `/document/${data.document.id}/`;
+            }, 5000);
+        } else {
+            statusMessage.className = 'alert alert-danger';
+            statusMessage.textContent = data.error || 'Upload failed';
+        }
+    } catch (error) {
+        statusMessage.className = 'alert alert-danger';
+        statusMessage.textContent = 'Error uploading file: ' + error.message;
+    }
+});
+</script>
+{% endblock %}

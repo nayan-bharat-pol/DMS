@@ -1,0 +1,404 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Title Section -->
+    <div>
+        <h2 class="text-3xl font-bold text-gray-900 mb-2">Document Management System</h2>
+        <p class="text-gray-600">Manage, analyze, and extract insights from your documents</p>
+    </div>
+
+    <!-- Navigation Tabs -->
+   
+
+      <div class="flex flex-wrap items-center justify-between gap-4">
+    <!-- Left side: Tabs -->
+    <div class="flex flex-wrap gap-2">
+        <a href="{% url 'docusense:all_documents' %}" 
+           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+           All Documents
+        </a>
+        <a href="{% url 'docusense:recent_documents' %}" 
+           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+           Recent
+        </a>
+        <a href="{% url 'docusense:pdf_documents' %}" 
+           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+           PDFs
+        </a>
+        <a href="{% url 'docusense:word_documents' %}" 
+           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+           Word Documents
+        </a>
+        <a href="{% url 'docusense:excel_documents' %}" 
+           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+           Excel
+        </a>
+    </div>
+
+    <!-- Right side: Actions -->
+    <div class="flex items-center space-x-3">
+        <button onclick="openUploadModal()" 
+                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700">
+            + New
+        </button>
+        <button class="p-2 text-gray-400 hover:text-gray-500">
+            <i class="fas fa-user-circle text-xl"></i>
+        </button>
+    </div>
+</div>
+
+
+    <!-- Search Bar -->
+    <div class="relative">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class="fas fa-search text-gray-400"></i>
+        </div>
+        <input type="text" 
+               id="search-input" 
+               placeholder="Search documents..." 
+               class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+    </div>
+
+    <!-- Document Grid -->
+    <div id="document-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Example Document Card (Static) -->
+        <div class="document-card bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-1">
+                    <div class="file-icon text-red-500">
+                        <i class="far fa-file-pdf"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-1">Example Document.pdf</h3>
+                    <div class="text-sm text-gray-500 mb-2">
+                        <span>📄 Pdf • 1 MB</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-2">Uploaded Example</p>
+                    <div class="flex flex-wrap gap-1">
+                        <span class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full">example</span>
+                        <span class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full">dummy</span>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Document Cards -->
+        {% for document in documents %}
+        <div class="document-card bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-1">
+                    <div class="file-icon {% if document.file_type == 'pdf' %}text-red-500{% elif document.file_type == 'docx' %}text-blue-500{% else %}text-gray-500{% endif %}">
+                        {% if document.file_type == 'pdf' %}
+                            <i class="far fa-file-pdf"></i>
+                        {% elif document.file_type == 'docx' %}
+                            <i class="far fa-file-word"></i>
+                        {% else %}
+                            <i class="far fa-file-alt"></i>
+                        {% endif %}
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-1">{{ document.name }}</h3>
+                    <div class="text-sm text-gray-500 mb-2">
+                        <span>{{ document.get_file_type_display }} • {{ document.size }}</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-2">Uploaded {{ document.uploaded_at|timesince }} ago</p>
+                </div>
+                <div class="flex items-center">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" {% if document.status %}checked{% endif %} 
+                               class="sr-only peer" 
+                               data-document-id="{{ document.id }}"
+                               onchange="toggleDocumentStatus('{{ document.id }}', this.checked)">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+            <div class="mt-4 flex space-x-2">
+                <button onclick="viewDocument('{{ document.id }}')" 
+                        class="w-full px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    View & Chat
+                </button>
+
+                <button onclick="deleteDocument('{{ document.id }}')" 
+                        class="w-full px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    Delete
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div id="upload-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Upload Document</h3>
+            
+            <form id="upload-form" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Choose File</label>
+                    <input type="file" 
+                           name="document" 
+                           id="file-input"
+                           accept=".txt,.pdf,.docx,.xlsx,.xls"
+                           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                    <p class="text-xs text-gray-500 mt-1">Limit 300MB per file • TXT, PDF, DOCX, XLSX, XLS</p>
+                </div>
+                
+                <div class="flex items-center justify-end space-x-4">
+                    <button type="button" 
+                            onclick="closeUploadModal()"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Cancel
+                    </button>
+                    <button type="submit" 
+                            class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openUploadModal() {
+    document.getElementById('upload-modal').classList.remove('hidden');
+}
+
+function closeUploadModal() {
+    document.getElementById('upload-modal').classList.add('hidden');
+    document.getElementById('upload-form').reset();
+}
+
+function viewDocument(documentId) {
+    window.location.href = `/document/${documentId}/`;
+}
+
+function toggleDocumentStatus(documentId, status) {
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", $('meta[name=csrf-token]').attr('content') || $('[name=csrfmiddlewaretoken]').val());
+            }
+        }
+    });
+
+    $.ajax({
+        url: `/toggle-status/${documentId}/`,
+        method: 'POST',
+        data: {
+            'status': status
+        },
+        success: function(response) {
+            if (response.success) {
+                console.log('Status updated successfully');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error updating status:', error);
+            // Revert the toggle if there was an error
+            $(`input[data-document-id="${documentId}"]`).prop('checked', !status);
+        }
+    });
+}
+
+// Handle file upload
+$('#upload-form').on('submit', function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('file-input');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Please select a file to upload.');
+        return;
+    }
+    
+    // Check file type
+    const allowedTypes = [
+        'text/plain', 
+        'application/pdf', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // XLSX
+        'application/vnd.ms-excel' // XLS
+    ];
+    if (!allowedTypes.includes(file.type)) {
+        alert('Please upload only TXT, PDF, DOCX, XLSX, or XLS files.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('document', file);
+    formData.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val());
+    
+    // Show loading state
+    const submitBtn = $(this).find('button[type="submit"]');
+    const originalText = submitBtn.text();
+    submitBtn.text('Uploading...').prop('disabled', true);
+    
+    $.ajax({
+        url: '/upload/',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                // Close modal
+                closeUploadModal();
+                
+                // Add new document card to grid
+                addDocumentToGrid(response.document);
+                
+                // Show success message
+                showNotification('Document uploaded successfully!', 'success');
+            } else {
+                showNotification(response.error || 'Upload failed', 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            const errorMsg = xhr.responseJSON?.error || 'Upload failed';
+            showNotification(errorMsg, 'error');
+        },
+        complete: function() {
+            // Reset button state
+            submitBtn.text(originalText).prop('disabled', false);
+        }
+    });
+});
+
+function addDocumentToGrid(document) {
+    const iconClass = document.type === 'pdf' ? 'far fa-file-pdf text-red-500' : 
+                     document.type === 'docx' ? 'far fa-file-word text-blue-500' : 
+                     'far fa-file-alt text-gray-500';
+    
+    const documentCard = `
+        <div class="document-card bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-all duration-200">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-1">
+                    <div class="file-icon">
+                        <i class="${iconClass}"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 mb-1">${document.name}</h3>
+                    <div class="text-sm text-gray-500 mb-2">
+                        <span>${document.type.toUpperCase()} • ${document.size}</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-2">Uploaded ${document.uploaded}</p>
+                </div>
+                <div class="flex items-center">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" ${document.status ? 'checked' : ''} 
+                               class="sr-only peer" 
+                               data-document-id="${document.id}"
+                               onchange="toggleDocumentStatus(${document.id}, this.checked)">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button onclick="viewDocument(${document.id})" 
+                        class="w-full px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    View & Chat
+                </button>
+            </div>
+        </div>
+    `;
+    
+    $('#document-grid').prepend(documentCard);
+}
+
+function showNotification(message, type) {
+    const alertClass = type === 'success' ? 'bg-green-50 text-green-800 border-green-200' : 'bg-red-50 text-red-800 border-red-200';
+    const iconClass = type === 'success' ? 'fas fa-check-circle text-green-400' : 'fas fa-exclamation-circle text-red-400';
+    
+    const notification = $(`
+        <div class="fixed top-4 right-4 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden z-50">
+            <div class="p-4">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="${iconClass}"></i>
+                    </div>
+                    <div class="ml-3 w-0 flex-1 pt-0.5">
+                        <p class="text-sm font-medium text-gray-900">${message}</p>
+                    </div>
+                    <div class="ml-4 flex-shrink-0 flex">
+                        <button class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none" onclick="$(this).closest('.fixed').remove()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+    
+    $('body').append(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        notification.fadeOut(() => notification.remove());
+    }, 5000);
+}
+
+// Search functionality
+$('#search-input').on('input', function() {
+    const searchTerm = $(this).val().toLowerCase();
+    $('.document-card').each(function() {
+        const documentName = $(this).find('h3').text().toLowerCase();
+        if (documentName.includes(searchTerm)) {
+            $(this).show();
+        } else {
+            $(this).hide();
+        }
+    });
+});
+
+// Close modal when clicking outside
+$(document).on('click', function(e) {
+    if (e.target.id === 'upload-modal') {
+        closeUploadModal();
+    }
+});
+
+function deleteDocument(documentId) {
+    if (!confirm("Are you sure you want to delete this document?")) {
+        return;
+    }
+
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", $('meta[name=csrf-token]').attr('content') || $('[name=csrfmiddlewaretoken]').val());
+            }
+        }
+    });
+
+    $.ajax({
+        url: `/delete-document/${documentId}/`,
+        method: 'POST',
+        success: function(response) {
+            if (response.success) {
+                $(`button[onclick="deleteDocument('${documentId}')"]`).closest('.document-card').remove();
+                showNotification('Document deleted successfully!', 'success');
+            } else {
+                showNotification(response.error || 'Delete failed', 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Delete error:', error);
+            showNotification('Error deleting document', 'error');
+        }
+    });
+}
+</script>
+{% endblock %}

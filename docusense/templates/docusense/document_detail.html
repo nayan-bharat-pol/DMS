@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ document.name }} - DocuSense AI{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Back Button -->
+    <div class="flex items-center space-x-4">
+        <a href="{% url 'docusense:home' %}" class="flex items-center text-indigo-600 hover:text-indigo-800">
+            <i class="fas fa-arrow-left mr-2"></i>
+            Back to Documents
+        </a>
+    </div>
+
+    <!-- Document Info -->
+    <div class="bg-white rounded-lg shadow-sm p-6 border">
+        <div class="flex items-start justify-between">
+            <div class="flex items-start space-x-4">
+                <div class="file-icon {% if document.file_type == 'pdf' %}text-red-500{% elif document.file_type == 'docx' %}text-blue-500{% else %}text-gray-500{% endif %}">
+                    {% if document.file_type == 'pdf' %}
+                        <i class="far fa-file-pdf text-4xl"></i>
+                    {% elif document.file_type == 'docx' %}
+                        <i class="far fa-file-word text-4xl"></i>
+                    {% else %}
+                        <i class="far fa-file-alt text-4xl"></i>
+                    {% endif %}
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ document.name }}</h1>
+                    <div class="text-sm text-gray-500 mt-1">
+                        <span>{{ document.get_file_type_display }} • {{ document.size }}</span>
+                    </div>
+                    <p class="text-sm text-gray-500">Uploaded {{ document.uploaded_at|timesince }} ago</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" {% if document.status %}checked{% endif %} 
+                           class="sr-only peer" 
+                           data-document-id="{{ document.id }}"
+                          onchange="toggleDocumentStatus('{{ document.id }}', this.checked)"
+
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+                <button onclick="downloadDocument()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+                    <i class="fas fa-download mr-2"></i>
+                    Download
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Document Preview -->
+        <div class="space-y-4">
+            <h2 class="text-xl font-semibold text-gray-900">Document Preview</h2>
+            <div class="bg-white rounded-lg shadow-sm border">
+                <div class="p-4 border-b border-gray-200">
+                    <h3 class="text-sm font-medium text-gray-700">Document Content</h3>
+                </div>
+                <div class="p-4">
+                    <textarea readonly 
+                              class="w-full h-80 p-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                              placeholder="Document content will appear here...">{{ document.content }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Interface -->
+        <div class="space-y-4">
+            <h2 class="text-xl font-semibold text-gray-900">Chat with Document</h2>
+            <div class="bg-white rounded-lg shadow-sm border flex flex-col h-96">
+                <!-- Chat Messages -->
+                <div id="chat-messages" class="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
+                    {% for message in chat_messages %}
+                    <div class="chat-message flex {% if message.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
+                        <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg {% if message.role == 'user' %}bg-indigo-600 text-white{% else %}bg-white text-gray-800 border border-gray-200{% endif %}">
+                            {% if message.role == 'assistant' %}
+                            <div class="flex items-center mb-1">
+                                <i class="fas fa-robot text-indigo-500 mr-2"></i>
+                                <span class="text-xs font-medium text-gray-500">AI Assistant</span>
+                            </div>
+                            {% endif %}
+                            <p class="text-sm">{{ message.content }}</p>
+                            <p class="text-xs mt-1 {% if message.role == 'user' %}text-indigo-200{% else %}text-gray-400{% endif %}">
+                                {{ message.timestamp|date:"H:i" }}
+                            </p>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-gray-500 mt-8">
+                        <i class="fas fa-comments text-4xl text-gray-300 mb-4"></i>
+                        <p>No messages yet. Start a conversation!</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Chat Input -->
+                <div class="border-t border-gray-200 p-4">
+                    <form id="chat-form" class="flex space-x-2">
+                        {% csrf_token %}
+                        <input type="hidden" id="document-id" value="{{ document.id }}">
+                        <input type="hidden" id="session-id" value="{{ session_id }}">
+                        <input type="text" 
+                               id="chat-input" 
+                               placeholder="Ask a question about the document..."
+                               class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                               autocomplete="off">
+                        <button type="submit" 
+                                id="send-button"
+                                class="px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg p-6 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+            <span class="text-gray-700">AI is thinking...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleDocumentStatus(documentId, status) {
+    $.ajaxSetup({
+        beforeSend: function(xhr, settings) {
+            if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+                xhr.setRequestHeader("X-CSRFToken", $('meta[name=csrf-token]').attr('content') || $('[name=csrfmiddlewaretoken]').val());
+            }
+        }
+    });
+
+    $.ajax({
+        url: `/toggle-status/${documentId}/`,
+        method: 'POST',
+        data: {
+            'status': status
+        },
+        success: function(response) {
+            if (response.success) {
+                console.log('Status updated successfully');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error updating status:', error);
+            $(`input[data-document-id="${documentId}"]`).prop('checked', !status);
+        }
+    });
+}
+
+function downloadDocument() {
+    window.open('{{ document.file.url }}', '_blank');
+}
+
+// Chat functionality
+$('#chat-form').on('submit', function(e) {
+    e.preventDefault();
+    
+    const question = $('#chat-input').val().trim();
+    if (!question) return;
+    
+    const documentId = $('#document-id').val();
+    const sessionId = $('#session-id').val();
+    
+    // Add user message to chat
+    addMessageToChat('user', question);
+    
+    // Clear input and disable form
+    $('#chat-input').val('');
+    $('#send-button').prop('disabled', true);
+    $('#loading-overlay').removeClass('hidden');
+    
+    // Send to server
+    $.ajax({
+        url: '/chat/',
+        method: 'POST',
+        data: JSON.stringify({
+            'document_id': documentId,
+            'question': question,
+            'session_id': sessionId
+        }),
+        contentType: 'application/json',
+        success: function(response) {
+            if (response.success) {
+                // Add AI response to chat
+                addMessageToChat('assistant', response.ai_message.content);
+            } else {
+                addMessageToChat('assistant', 'Sorry, I encountered an error while processing your question.');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Chat error:', error);
+            addMessageToChat('assistant', 'Sorry, I encountered an error while processing your question.');
+        },
+        complete: function() {
+            $('#send-button').prop('disabled', false);
+            $('#loading-overlay').addClass('hidden');
+            $('#chat-input').focus();
+        }
+    });
+});
+
+function addMessageToChat(role, content) {
+    const currentTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const isUser = role === 'user';
+    
+    const messageHtml = `
+        <div class="chat-message flex ${isUser ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isUser ? 'bg-indigo-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}">
+                ${!isUser ? `
+                <div class="flex items-center mb-1">
+                    <i class="fas fa-robot text-indigo-500 mr-2"></i>
+                    <span class="text-xs font-medium text-gray-500">AI Assistant</span>
+                </div>
+                ` : ''}
+                <p class="text-sm">${content}</p>
+                <p class="text-xs mt-1 ${isUser ? 'text-indigo-200' : 'text-gray-400'}">
+                    ${currentTime}
+                </p>
+            </div>
+        </div>
+    `;
+    
+    $('#chat-messages').append(messageHtml);
+    $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
+}
+
+// Auto-focus chat input
+$(document).ready(function() {
+    $('#chat-input').focus();
+    
+    // Scroll chat to bottom
+    $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
+});
+
+// Handle Enter key in chat input
+$('#chat-input').on('keypress', function(e) {
+    if (e.which === 13 && !e.shiftKey) {
+        e.preventDefault();
+        $('#chat-form').submit();
+    }
+});
+</script>
+{% endblock %}

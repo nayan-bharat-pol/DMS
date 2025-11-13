@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Manager - Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #bbd1dfff 0%, #d4ccdbff 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .dashboard-container {
+            padding: 2rem;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .stat-card .card-body {
+            text-align: center;
+            padding: 2rem;
+        }
+        .stat-number {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .stat-label {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #349696ff 0%, #ded4e9ff 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 25px;
+        }
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .status-success {
+            color: #28a745;
+        }
+        .status-error {
+            color: #dc3545;
+        }
+        .status-timeout {
+            color: #d8ba5fff;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'db_manager:dashboard' %}">
+                <i class="fas fa-database me-2"></i>DB Manager
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/DocAI/">DocAI</a>
+                <a class="nav-link" href="{% url 'db_manager:connection_list' %}">Connections</a>
+                <a class="nav-link" href="{% url 'db_manager:query_logs' %}">Logs</a>
+                 
+
+
+            </div>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <div class="container">
+            <!-- Header -->
+            <div class="row mb-4">
+                <div class="col">
+                    <h1 class="text-white mb-0">Database Manager Dashboard</h1>
+                    <p class="text-white-50">Monitor and manage your database connections</p>
+                </div>
+                <div class="col-auto">
+                    <a href="{% url 'db_manager:add_connection' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Add Connection
+                    </a>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card">
+                        <div class="card-body">
+                            <div class="stat-number">{{ total_connections }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-database me-2"></i>Connections
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card">
+                        <div class="card-body">
+                            <div class="stat-number">{{ total_queries_today }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-search me-2"></i>Queries Today
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card">
+                        <div class="card-body">
+                            <div class="stat-number">{{ active_monitors }}</div>
+                            <div class="stat-label">
+                                <i class="fas fa-eye me-2"></i>Active Monitors
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card">
+                        <div class="card-body">
+                            <div class="stat-number" id="currentTime"></div>
+                            <div class="stat-label">
+                                <i class="fas fa-clock me-2"></i>Current Time
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Active Connections -->
+                <div class="col-lg-8 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-plug me-2"></i>Active Connections
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Type</th>
+                                            <th>Host</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for connection in connections %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ connection.name }}</strong>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ connection.get_db_type_display }}</span>
+                                            </td>
+                                            <td>{{ connection.host }}:{{ connection.port }}</td>
+                                            <td>
+                                                {% if connection.is_active %}
+                                                    <span class="badge bg-success">Active</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Inactive</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{% url 'db_manager:query_interface' connection.id %}" 
+                                                       class="btn btn-outline-primary" title="Query">
+                                                        <i class="fas fa-search"></i>
+                                                    </a>
+                                                    <a href="{% url 'db_manager:database_stats' connection.id %}" 
+                                                       class="btn btn-outline-info" title="Stats">
+                                                        <i class="fas fa-chart-bar"></i>
+                                                    </a>
+                                                    <a href="{% url 'db_manager:test_connection' connection.id %}" 
+                                                       class="btn btn-outline-success" title="Test">
+                                                        <i class="fas fa-check"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4">
+                                                <div class="text-muted">
+                                                    <i class="fas fa-database fa-3x mb-3"></i>
+                                                    <p>No database connections found</p>
+                                                    <a href="{% url 'db_manager:add_connection' %}" class="btn btn-primary">
+                                                        Add Your First Connection
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="col-lg-4 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-history me-2"></i>Recent Activity
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% for log in recent_logs %}
+                            <div class="d-flex align-items-start mb-3">
+                                <div class="me-3">
+                                    {% if log.status == 'success' %}
+                                        <i class="fas fa-check-circle status-success"></i>
+                                    {% elif log.status == 'error' %}
+                                        <i class="fas fa-times-circle status-error"></i>
+                                    {% else %}
+                                        <i class="fas fa-clock status-timeout"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">{{ log.database_connection.name }}</div>
+                                    <div class="text-muted small">
+                                        {{ log.executed_at|timesince }} ago
+                                        {% if log.execution_time %}
+                                            • {{ log.execution_time|floatformat:2 }}s
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-clock fa-2x mb-2"></i>
+                                <p>No recent activity</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if recent_logs %}
+                        <div class="card-footer bg-white">
+                            <a href="{% url 'db_manager:query_logs' %}" class="btn btn-sm btn-outline-primary">
+                                View All Logs
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            document.getElementById('currentTime').textContent = timeString;
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Auto-refresh page every 30 seconds
+        setTimeout(() => {
+            location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>
