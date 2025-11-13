@@ -1,0 +1,16 @@
+[[source]]
+url = "https://anu9rng:AP6eY5xuhS1MqAdy5jedftw3ndQq7MHjXL8Rpb@rb-artifactory.bosch.com/artifactory/api/pypi/python-virtual/simple"
+verify_ssl = true
+name = "pip_conf_index_global"
+
+[packages]
+django = "*"
+"google.generativeai" = "*"
+pdfreader = "*"
+pypdf2 = "*"
+openpyxl = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.13"

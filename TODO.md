@@ -1,0 +1,2 @@
+- [x] Remove duplicate 'upload-excel/' path from docusense_project/urls.py
+- [x] Fix indentation in decorators for toggle_document_status in docusense/views.py
