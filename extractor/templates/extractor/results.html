@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extraction Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .region-card {
+            transition: transform 0.2s;
+        }
+        .region-card:hover {
+            transform: scale(1.05);
+        }
+        .cropped-region {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .original-preview {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1>🔍 Extraction Results</h1>
+                    <div>
+                        <a href="{% url 'upload' %}" class="btn btn-primary">📤 Upload New Image</a>
+                        <a href="{% url 'all_results' %}" class="btn btn-outline-secondary">📋 All Results</a>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3>Original Image</h3>
+                        <small class="text-muted">
+                            Uploaded: {{ uploaded_image.uploaded_at|date:"M d, Y H:i" }} | 
+                            Regions Found: {{ uploaded_image.total_regions_found }}
+                        </small>
+                    </div>
+                    <div class="card-body text-center">
+                        <img src="{{ uploaded_image.original_image.url }}" class="original-preview" alt="Original Image">
+                    </div>
+                </div>
+                
+                {% if number_regions %}
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 Extracted Number Regions</h3>
+                        <p class="mb-0">{{ number_regions|length }} number-containing regions detected and extracted</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for region in number_regions %}
+                            <div class="col-md-4 col-sm-6 mb-4">
+                                <div class="card region-card h-100">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-title">Region {{ region.region_index|add:1 }}</h6>
+                                        <img src="{{ region.cropped_image.url }}" class="cropped-region mb-3" alt="Number Region">
+                                        <div class="small text-muted">
+                                            <div><strong>Position:</strong> ({{ region.bbox_x }}, {{ region.bbox_y }})</div>
+                                            <div><strong>Size:</strong> {{ region.bbox_width }}×{{ region.bbox_height }}px</div>
+                                            <div><strong>Confidence:</strong> {{ region.confidence_score|floatformat:1 }}%</div>
+                                        </div>
+                                        <a href="{{ region.cropped_image.url }}" class="btn btn-sm btn-outline-primary mt-2" target="_blank">
+                                            🔍 View Full Size
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <h4>No Number Regions Found</h4>
+                    <p>The image was processed but no regions containing numbers were detected. This could happen if:</p>
+                    <ul>
+                        <li>The image doesn't contain visible numbers</li>
+                        <li>The numbers are too small or blurry</li>
+                        <li>The image quality is too low</li>
+                        <li>The numbers are in an unusual font or style</li>
+                    </ul>
+                    <a href="{% url 'upload' %}" class="btn btn-primary">Try Another Image</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
